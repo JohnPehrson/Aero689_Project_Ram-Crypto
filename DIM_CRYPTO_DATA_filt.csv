@@ -1,0 +1,7 @@
+Id,Code,Currency_Name,Is_Mineable
+2,BTC,Bitcoin,1
+3,DASH,DASH,1
+4,DOGE,Dogecoin,1
+6,ETH,Ethereum,1
+7,LTC,Litecoin,1
+14,XMR,Monero,1
