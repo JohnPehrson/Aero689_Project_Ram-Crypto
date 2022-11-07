@@ -1,0 +1,16 @@
+Id,Code,Currency_Name,Is_Mineable
+1,ADA,Cardano,0
+2,BTC,Bitcoin,1
+3,DASH,DASH,1
+4,DOGE,Dogecoin,1
+5,EOS,EOS,0
+6,ETH,Ethereum,1
+7,LTC,Litecoin,1
+8,MIOTA,IOTA,0
+9,NEO,NEO,0
+10,TRX,TRON,0
+11,USDT,Tether,0
+12,XEM,NEM,0
+13,XLM,Stellar,0
+14,XMR,Monero,1
+15,XRP,Ripple,0
