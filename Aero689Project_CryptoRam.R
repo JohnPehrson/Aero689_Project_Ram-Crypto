@@ -14,6 +14,19 @@ library(ggeffects)
 library(emmeans)
 library(ggResidpanel)
 library(ggpubr)
+library(pwr)
+library(catdata)
+library(MASS)
+library(nlme)
+library(DHARMa)
+library(mgcv)
+library(RVAideMemoire)
+library(car)
+library(EnvStats)
+library(coin)
+library(leaps)
+library(caret)
+library(psych)
 
 Crypto_factors_filename     = "DIM_CRYPTO_DATA_filt.csv"
 GPU_factors_filename        = "DIM_GPU_PROD_filt.csv"
@@ -31,104 +44,208 @@ Factors.Time <- read.csv(Time_factors_filename, header=TRUE, stringsAsFactors=FA
 Price.GPU <- read.csv(GPU_price_filename, header=TRUE, stringsAsFactors=FALSE)
 Price.Crypto <- read.csv(Crypto_price_filename, header=TRUE, stringsAsFactors=FALSE)
 
-  #get all cards of the same type
-    all_card_ids = Factors.GPU$Id
-    card_id = all_card_ids[12]
-    single_card <- Price.GPU[Price.GPU$ProdId == card_id,]
+## Initialize iterated values
+gpu_count = nrow(Factors.GPU)
+crypto_count = nrow(Factors.Crypto)
 
-  #get all prices of a single currency
-    all_curr_ids = Factors.Crypto$Id
-    curr_id = all_curr_ids[6]
-    single_curr <- Price.Crypto[Price.Crypto$CodeId == curr_id,]
 
-  #left-join the card with a single cryptocurrency
-    corr_df = merge(single_card, single_curr, by = "TimeId")
-      #what if I trim the data down to when crypto really skyrockets?
-    corr_df = corr_df[corr_df$TimeId>20170500,]
-    corr_df = toDateTime(corr_df)
-  #make factors
-    names(Factors.Merchant)[1] <- 'MerchantId'
-    corr_df = merge(corr_df, Factors.Merchant, by = "MerchantId")
-    corr_df$RegionId <- factor(corr_df$RegionId,
-                       levels = c(1, 3, 4, 9, 10, 11),
-                       labels = c("AUD", "CAD", "EUR","NZD","GBP","USD"))
-    corr_df <- corr_df[,2:ncol(corr_df)]
-    corr_df$Merchant <- as.factor(corr_df$Merchant)   # Convert character column to factor
-    str(corr_df)
+i = 25
+j = 3
+
+
+      #get all cards of the same type
+        all_card_ids = Factors.GPU$Id
+        card_id = all_card_ids[i] 
+        single_card_df <- Price.GPU[Price.GPU$ProdId == card_id,]
+        card_info <- Factors.GPU[ Factors.GPU$Id==card_id,]
+        card_plot_title = paste(card_info$Processor,card_info$Processor_Manufacturer,'by'
+                                ,card_info$GPU_Manufacturer, sep = " ", collapse = NULL)
+        
+      #get all prices of a single currency
+        all_curr_ids = Factors.Crypto$Id
+        curr_id = all_curr_ids[j]
+        single_curr_df <- Price.Crypto[Price.Crypto$CodeId == curr_id,]
+        curr_info <- Factors.Crypto[ Factors.Crypto$Id==curr_id,]
+        curr_plot_title = paste(curr_info$Currency_Name,'Cryptocurrency', sep = " ", collapse = NULL)
     
+      #left-join the card with a single cryptocurrency
+        corr_df = merge(single_card_df, single_curr_df, by = "TimeId")
+          #what if I trim the data down to when crypto really skyrockets?
+        corr_df = corr_df[corr_df$TimeId>20170500,]
     
-  #scatterplot each through time
-    ggplot(single_card_df,                    # Change colors of lines by group
-           aes(x = TimeId,
-               y = Price_USD,
-               col = RegionId)) +
-      geom_point()
-  
-    ggplot(single_card_df,                    # Change colors of lines by group
-           aes(x = TimeId,
-               y = Open)) +
-      geom_point()
-  
-  #scatterplot vs each other
-  ggplot(single_card_df,                    # Change colors of lines by group
-         aes(x = Open,
-             y = Price_USD,
-             col = RegionId)) +
-    geom_point()
-
-  
-  #fixed model
-  m1.gls <- gls(Price_USD~Open, data = corr_df, method = "REML",na.action=na.omit)
-  #alternative models
-  m1.lme4 <- lmer(Price_USD~Open + (1|RegionId), data = corr_df, REML = TRUE)
-  m1a.lme4 <- lmer(Price_USD~Open+RegionId + (1|RegionId), data = corr_df, REML = TRUE)
-  m2.lme4<- lmer(Price_USD~Open+RegionId*Merchant + (1|RegionId), data = corr_df, REML = TRUE)
-  m2a.lme4<- lmer(Price_USD~Open+RegionId+Merchant + (1|RegionId), data = corr_df, REML = TRUE)
-  
-  #AIC comparison of FM and alt
-  AIC(m1.gls,m1.lme4,m1a.lme4,m2.lme4,m2a.lme4)
-  
-  #Narrow down plausible models
-  m1.lme4_ml <- lmer(Price_USD~Open + (1|RegionId), data = corr_df, REML = FALSE)
-  m1a.lme4_ml <- lmer(Price_USD~Open+RegionId + (1|RegionId), data = corr_df, REML = FALSE)
-  m2.lme4_ml<- lmer(Price_USD~Open+RegionId+Merchant + (1|RegionId), data = corr_df, REML = FALSE)
-  
-  # anova(m1.lme4_ml)
-  # anova(m1a.lme4_ml)
-  # anova(m2.lme4_ml)
-  # anova(m1.lme4_ml,m1a.lme4_ml,m2.lme4_ml)
-  #use m1, with random intercept on region
-  m1.lme4 <- lmer(Price_USD~Open + (1|RegionId), data = corr_df, REML = TRUE)
-  summary(m1.lme4)
+      #make factors
+        names(Factors.Merchant)[1] <- 'MerchantId'
+        corr_df = merge(corr_df, Factors.Merchant, by = "MerchantId")
+        corr_df$RegionId <- factor(corr_df$RegionId,
+                           levels = c(1, 3, 4, 9, 10, 11),
+                           labels = c("AUD", "CAD", "EUR","NZD","GBP","USD"))
+        corr_df <- corr_df[,2:ncol(corr_df)]
+        corr_df$Merchant <- as.factor(corr_df$Merchant)   # Convert character column to factor
+        corr_df = toDateTime(corr_df)
+        str(corr_df)
+        corr_df <- corr_df[,-c(7,8,9)]  #get rid of columns with extra cryptocurrency stuff
+        
+        
+        #scatterplot each through time
+        ggplot(corr_df,                    # Change colors of lines by region
+               aes(x = TimeId,
+                   y = Price_USD,
+                   col = RegionId)) +
+          xlab('Time')+
+          ylab('Price of Sold Graphics Card [USD]')+
+          ggtitle(card_plot_title)+
+          theme(plot.title = element_text(hjust = 0.5))+
+          geom_point()
+      
+        ggplot(corr_df,                    # Change colors of lines by region
+               aes(x = TimeId,
+                   y = Open)) +
+          xlab('Time')+
+          ylab('Price of Cryptocurrency')+
+          ggtitle(curr_plot_title)+
+          theme(plot.title = element_text(hjust = 0.5))+
+          geom_point()
+      
+      #scatterplot vs each other
+        compare_title = paste(curr_plot_title,'vs',card_plot_title, sep = " ", collapse = NULL)
+        
+      ggplot(corr_df,                    # Change colors of lines by region
+             aes(x = Open,
+                 y = Price_USD,
+                 col = RegionId)) +
+        xlab('Price of Cryptocurrency')+
+        ylab('Price of Sold Graphics Card [USD]')+
+        ggtitle(compare_title)+
+        theme(plot.title = element_text(hjust = 0.5))+
+        geom_point()
     
-  #various data tests
-  resid_panel(m1.lme4, plots = "all")
-  ggqqplot(resid(m1.lme4))
-  #residuals are pretty substantially  non-normal. Use a transformation
-  #try logorithmic on dependent variable (cryptocurrency price)
-  #try a square-root on dependent variable (cryptocurrency price)
-  m1.lme4_log <- lmer(Price_USD~log(Open) + (1|RegionId), data = corr_df, REML = TRUE)
-  m1.lme4_sqrt <- lmer(Price_USD~sqrt(Open) + (1|RegionId), data = corr_df, REML = TRUE)
-  summary(m1.lme4_log)
-  summary(m1.lme4_sqrt)
-  
-  resid_panel(m1.lme4_log, plots = "all")
-  resid_panel(m1.lme4_sqrt, plots = "all")
-  #still not fixed. Work to create/use a transformation to correct for data non-normality
-  
-  
-  
+      #scatterplot vs each other
+      ggplot(corr_df,                    # Change colors of lines by merchant
+             aes(x = Open,
+                 y = Price_USD,
+                 col = Merchant)) +
+        xlab('Price of Cryptocurrency')+
+        ylab('Price of Sold Graphics Card [USD]')+
+        ggtitle(compare_title)+
+        theme(plot.title = element_text(hjust = 0.5))+
+        geom_point()
+    
+    ##   
+      ggplot(corr_df, aes(x = Open, y = Price_USD)) +
+        geom_point() +
+        stat_smooth(method = "lm") +
+        xlab('Price of Cryptocurrency')+
+        ylab('Price of Sold Graphics Card [USD]')+
+        ggtitle('General Mixed Model on GPU Seller')+
+        theme(plot.title = element_text(hjust = 0.5))+
+        facet_wrap(~ Merchant, ncol = 5)
+      
+      #fixed model
+      m1.gls <- gls(Price_USD~Open, data = corr_df, method = "REML",na.action=na.omit)
+      
+      #alternative models
+      m1_all.lme4<- lmer(Price_USD~Open*RegionId*Merchant + (1|RegionId), data = corr_df, REML = TRUE)
+      m1_nocovar.lme4<- lmer(Price_USD~Open+RegionId+Merchant + (1|RegionId), data = corr_df, REML = TRUE)
+      m1.d.lme4 <- lmer(Price_USD~Open+RegionId + (1|RegionId), data = corr_df, REML = TRUE)
+      m1.c.lme4 <- lmer(Price_USD~Open+Merchant + (1|Merchant), data = corr_df, REML = TRUE)
+      m1.b.lme4 <- lmer(Price_USD~Open + (1|RegionId), data = corr_df, REML = TRUE)
+      m1.a.lme4 <- lmer(Price_USD~Open + (1|Merchant), data = corr_df, REML = TRUE)
+    
+      #AIC comparison of FM and alt
+      AIC(m1.gls,m1_all.lme4,m1_nocovar.lme4,m1.d.lme4,m1.c.lme4,m1.b.lme4,m1.a.lme4)
+      
+      
+      #Narrow down plausible models
+      m1.a.lme4_ml <- lmer(Price_USD~Open+ (1|Merchant), data = corr_df, REML = FALSE)
+      m1.b.lme4_ml <- lmer(Price_USD~Open + (1|RegionId), data = corr_df, REML = FALSE)
+      m1.c.lme4_ml <- lmer(Price_USD~Open+Merchant +(1|Merchant), data = corr_df, REML = FALSE)
+      
+      anova(m1.a.lme4_ml,m1.b.lme4_ml,m1.c.lme4_ml)
+      anova(m1.a.lme4_ml)
+      anova(m1.b.lme4_ml)
+      anova(m1.c.lme4_ml)
+      
+      
+      #use m1.a.lme4, which is gpu price vs crypto price with a random factor of merchant.
+      # I chose this due to simplicity of model and reliability of fitting. 
+      #My goal is primarily applicability of the model to a variety of cryptocurrencies 
+        #and gpu cards, so model simplicity is important
+      
+    
+      #use m1, with random intercept on region
+      m1.lme4 <- lmer(Price_USD~Open + (1|Merchant), data = corr_df, REML = TRUE)
+      summary(m1.lme4)
+      resid_panel(m1.lme4, plots = "all")
+      ggqqplot(resid(m1.lme4))
+      
+      #test for normality
+      shapiro.test(resid(m1.lme4))
+      p_norm = shapiro.test(resid(m1.lme4))$p.value
+      
+            #didn't work
+      #       
+      # ## Box Cox ##
+      #       #testing times and dates
+      #       corr_df_numdate = corr_df
+      #       corr_df_numdate$TimeId = as.numeric(corr_df_numdate$TimeId)
+      #       #redo all factors as numbers
+      #       corr_df_numdate$Merchant = as.numeric(corr_df_numdate$Merchant)
+      #       str(corr_df_numdate)
+      #       
+      #       m2 <-lm(Price_USD ~ Open, data = corr_df_numdate)
+      # 
+      #       boxcox.list <- boxcox(m2, optimize = TRUE, plotit = TRUE)
+      #       lambda = boxcox.list$lambda
+      #       plot(boxcox.list, plot.type = "Q-Q Plots", same.window = TRUE)
+      #       
+      #       m3 <- lm(((Price_USD^lambda-1)/lambda) ~ Open, data = corr_df_numdate)
+      #       ggqqplot(resid(m3))
+      #       
+      #       m3.lme4 <- lmer(((Price_USD^lambda-1)/lambda) ~ Open + (1|Merchant), data = corr_df_numdate, REML = TRUE)
+      #       ggqqplot(resid(m3.lme4))
+    
+            
+    ## Ignoring non-normality and fitting anyways because I have no real alternative
+            #type of fit
+            m.lme4 <- lmer(Price_USD~Open + (1|Merchant), data = corr_df, REML = TRUE)
+            m.lm <- gls(Price_USD~Open, data = corr_df, method = "REML",na.action=na.omit)
+    
+            
+            
+            #get the regression coefficient
+            reg_coeff <- summary(m.lme4)$coefficients[2,1]
+            p_val <- summary(m.lme4)$coefficients[2,5]
+            
+            iter_df[nrow(iter_df) + 1,] = c(nrow(iter_df) + 1,i,card_plot_title,j,
+                                            curr_plot_title,reg_coeff,p_val)
+            #c('Iteration', 'CardId', 'Card_Name', 'CryptoID', 'Crypto_Name',
+            #'Regression_Coeff','P_value')
+            
+            # #plotting fit
+            # corr_df$lmer_fit <- predict(m.lme4)   #Add model fits to dataframe
+            # corr_df$lm_fit <- predict(m.lm)   #Add model fits to dataframe
+            # 
+           # ggplot(corr_df,aes(x = Open,y = Price_USD, col=Merchant)) +
+           #    geom_line(aes(y=lmer_fit), size=1) +
+           #    geom_point(alpha = 0.5) +
+           #    xlab('Price of Cryptocurrency')+
+           #    ylab('Price of Sold Graphics Card [USD]')+
+           #    ggtitle(compare_title)+
+           #    theme(plot.title = element_text(hjust = 0.5))+
+           #    theme_bw()
+           # 
+           # ggplot(corr_df,aes(x = Open,y = Price_USD)) +
+           #   geom_point() +
+           #   stat_smooth(method = "lm",formula = 'y ~ x') +
+           #   xlab('Price of Cryptocurrency')+
+           #   ylab('Price of Sold Graphics Card [USD]')+
+           #   ggtitle(compare_title)+
+           #   theme(plot.title = element_text(hjust = 0.5))+
+           #   theme_bw()
+            
 
-  #Plotting the chosen fit
-  m1.plot <- ggemmeans(m1.lme4, c("Open"), type = "fe")
-  ggplot(corr_df, aes(x = Open)) +
-    geom_point(aes(y = Price_USD, color = RegionId)) +
-    geom_line(data = m1.plot, aes(x = x, y = predicted)) +
-    geom_ribbon(data = m1.plot, aes(x = x, ymin = conf.low, ymax = conf.high), alpha = 0.2)
 
-
-
-  
-  
-  
-  
+        
+        
+        
+        

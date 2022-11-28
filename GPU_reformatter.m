@@ -120,6 +120,21 @@ passed_cards = all_gpus(cards_sufficient_price);
     GPU_factors = GPU_factors(include_cards_bin,:);
 
 
+%% Riltering out all merchants/sellers for specific cards
+        %If a merchant doesn't have enough information (some threshold of sold
+        %cards) on a specific graphics card, don't report that data through
+        card_seller_threshold = 80;
+        for i = 1:size(GPU_factors,1)
+            for j = 1:size(Merchant_factors,1)
+                row_counter = (1:size(GPU_price))';
+                bin_cardseller = and((GPU_price{:,1} == GPU_factors{i,1}),(GPU_price{:,4} == Merchant_factors{j,1}));
+                if (sum(bin_cardseller)<card_seller_threshold)&&(sum(bin_cardseller)>0) %delete rows
+                    GPU_price(row_counter(bin_cardseller),:) = [];
+                end
+            end
+        end
+
+
 %% Filtering out cryptocurrencies
 crypto_binary = Crypto_factors{:,4}==1;
 Crypto_factors = Crypto_factors(crypto_binary,:);
