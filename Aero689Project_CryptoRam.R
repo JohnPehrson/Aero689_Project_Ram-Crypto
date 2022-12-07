@@ -49,28 +49,40 @@ gpu_count = nrow(Factors.GPU)
 crypto_count = nrow(Factors.Crypto)
 
 
-i = 25
-j = 3
-
 
       #get all cards of the same type
         all_card_ids = Factors.GPU$Id
-        card_id = all_card_ids[i] 
+        card_id = all_card_ids[25] 
         single_card_df <- Price.GPU[Price.GPU$ProdId == card_id,]
         card_info <- Factors.GPU[ Factors.GPU$Id==card_id,]
         card_plot_title = paste(card_info$Processor,card_info$Processor_Manufacturer,'by'
                                 ,card_info$GPU_Manufacturer, sep = " ", collapse = NULL)
         
-      #get all prices of a single currency
-        all_curr_ids = Factors.Crypto$Id
-        curr_id = all_curr_ids[j]
-        single_curr_df <- Price.Crypto[Price.Crypto$CodeId == curr_id,]
-        curr_info <- Factors.Crypto[ Factors.Crypto$Id==curr_id,]
-        curr_plot_title = paste(curr_info$Currency_Name,'Cryptocurrency', sep = " ", collapse = NULL)
-    
-      #left-join the card with a single cryptocurrency
-        corr_df = merge(single_card_df, single_curr_df, by = "TimeId")
-          #what if I trim the data down to when crypto really skyrockets?
+        corr_df = single_card_df
+        # for (i in 1:nrow(1:Factors.Crypto)) {
+          #get all prices of a single currency
+            all_curr_ids = Factors.Crypto$Id
+            curr_id = all_curr_ids[1]
+            single_curr_df <- Price.Crypto[Price.Crypto$CodeId == curr_id,]
+            curr_info <- Factors.Crypto[ Factors.Crypto$Id==curr_id,]
+            
+            curr_info$Currency_Name
+            
+
+          #left-join the card with a single cryptocurrency
+            corr_df = merge(corr_df, single_curr_df, by = "TimeId")
+        # }
+        
+          
+          all_curr_ids = Factors.Crypto$Id
+          curr_id = all_curr_ids[5]
+          single_curr_df <- Price.Crypto[Price.Crypto$CodeId == curr_id,]
+          curr_info <- Factors.Crypto[ Factors.Crypto$Id==curr_id,]
+          curr_plot_title = paste(curr_info$Currency_Name,'Cryptocurrency', sep = " ", collapse = NULL)
+          
+          corr_df2 = merge(corr_df, single_curr_df, by = "TimeId")
+          
+      #what if I trim the data down to when crypto really skyrockets?
         corr_df = corr_df[corr_df$TimeId>20170500,]
     
       #make factors

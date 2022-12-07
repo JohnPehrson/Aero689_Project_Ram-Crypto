@@ -30,7 +30,7 @@ Crypto_price        = readtable(fullfile(filepath,Crypto_price_filename));
         for i = 1:length(gpu_count)
             gpu_count(i) = sum(GPU_price{:,1} == i);
         end
-        gpus_worth_using_binary = gpu_count>2000;
+        gpus_worth_using_binary = gpu_count>1000;
         gpus_worth_using = transpose(1:length(gpu_count));
         gpus_worth_using = gpus_worth_using(gpus_worth_using_binary);
         GPU_factors = GPU_factors(gpus_worth_using,:);
@@ -44,7 +44,7 @@ Crypto_price        = readtable(fullfile(filepath,Crypto_price_filename));
         for i = 1:length(region_count)
             region_count(i) = sum(GPU_price{:,3} == i);
         end
-        region_worth_using_binary = region_count>3000;
+        region_worth_using_binary = region_count>2000;
         region_worth_using = transpose(1:length(region_count));
         region_worth_using = region_worth_using(region_worth_using_binary);
         Region_factors = Region_factors(region_worth_using,:);
@@ -58,7 +58,7 @@ Crypto_price        = readtable(fullfile(filepath,Crypto_price_filename));
         for i = 1:length(seller_count)
             seller_count(i) = sum(GPU_price{:,4} == i);
         end
-        seller_worth_using_binary = seller_count>2000;
+        seller_worth_using_binary = seller_count>3000;
         seller_worth_using = transpose(1:length(seller_count));
         seller_worth_using = seller_worth_using(seller_worth_using_binary);
         Merchant_factors = Merchant_factors(seller_worth_using,:);
@@ -97,6 +97,19 @@ GPU_price = GPU_price(pass_rows_all,1:5);
     end
     GPU_price = GPU_price(~filt_rows,:);  %filtering out all leverage points
 
+%% Filtering out all data to only happen when Crypto price is changing:
+earliest_time = 20170000;
+binary_rows_use = GPU_price{:,2}>earliest_time;
+GPU_price = GPU_price(binary_rows_use,:);
+
+%% Filtering out all data with GPU memory less than 4GB
+lowest_memory= 4;
+use_factors = GPU_factors{:,5}>=lowest_memory;
+acceptable_gpus = GPU_factors{use_factors,1};
+binary_usegpus = ismember(GPU_price{:,1}, acceptable_gpus);
+GPU_price = GPU_price(binary_usegpus,:);
+
+
 %% Finding mean price for each gpu, filtering to only use cards with sufficient mean price
     card_mean_prices = zeros(length(all_gpus),1);
 for i = 1:length(all_gpus)
@@ -120,10 +133,10 @@ passed_cards = all_gpus(cards_sufficient_price);
     GPU_factors = GPU_factors(include_cards_bin,:);
 
 
-%% Riltering out all merchants/sellers for specific cards
+%% Filtering out all merchants/sellers for specific cards
         %If a merchant doesn't have enough information (some threshold of sold
         %cards) on a specific graphics card, don't report that data through
-        card_seller_threshold = 80;
+        card_seller_threshold = 50;
         for i = 1:size(GPU_factors,1)
             for j = 1:size(Merchant_factors,1)
                 row_counter = (1:size(GPU_price))';
@@ -134,6 +147,14 @@ passed_cards = all_gpus(cards_sufficient_price);
             end
         end
 
+%% Filtering out gpus that are only sold from one website
+for i = 1:size(GPU_factors,1)
+    gpu_id = GPU_factors{i,1};
+        unique_merchants = and((GPU_price{:,1} == GPU_factors{i,1}),(GPU_price{:,4} == Merchant_factors{j,1}));
+        if (sum(bin_cardseller)<card_seller_threshold)&&(sum(bin_cardseller)>0) %delete rows
+            GPU_price(row_counter(bin_cardseller),:) = [];
+        end
+end
 
 %% Filtering out cryptocurrencies
 crypto_binary = Crypto_factors{:,4}==1;
